@@ -1,0 +1,61 @@
+import { Event, EventFilters, RestartResult, Source } from '../types'
+
+const BASE = '/api'
+
+async function get<T>(path: string, params?: Record<string, string | undefined>): Promise<T> {
+  const url = new URL(path, window.location.origin)
+  if (params) {
+    for (const [key, val] of Object.entries(params)) {
+      if (val !== undefined && val !== '') {
+        url.searchParams.set(key, val)
+      }
+    }
+  }
+  const res = await fetch(url.pathname + url.search)
+  if (!res.ok) throw new Error(`GET ${path} failed: ${res.status}`)
+  return res.json()
+}
+
+async function post<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error(`POST ${path} failed: ${res.status}`)
+  return res.json()
+}
+
+export async function fetchSources(): Promise<Source[]> {
+  return get<Source[]>(`${BASE}/sources`)
+}
+
+export async function fetchEvents(filters: EventFilters): Promise<Event[]> {
+  const params: Record<string, string | undefined> = {}
+  if (filters.limit !== undefined) params.limit = String(filters.limit)
+  if (filters.isFailed !== undefined) params.isFailed = String(filters.isFailed)
+  if (filters.sourceSystems?.length) params.sourceSystems = filters.sourceSystems.join(',')
+  if (filters.imageFormats?.length) params.imageFormats = filters.imageFormats.join(',')
+  if (filters.pendingRestart !== undefined) params.pendingRestart = String(filters.pendingRestart)
+  return get<Event[]>(`${BASE}/events`, params)
+}
+
+export async function fetchFailedEvents(limit = 3000): Promise<Event[]> {
+  return get<Event[]>(`${BASE}/events/failed`, { limit: String(limit) })
+}
+
+export async function fetchPendingRestartEvents(limit = 3000): Promise<Event[]> {
+  return get<Event[]>(`${BASE}/events/pending-restart`, { limit: String(limit) })
+}
+
+export async function fetchImageFormats(): Promise<string[]> {
+  return get<string[]>(`${BASE}/formats`)
+}
+
+export async function restartEvent(
+  eventId: string,
+  priority: string,
+  notes: string,
+): Promise<RestartResult> {
+  return post<RestartResult>(`${BASE}/restart`, { eventId, priority, notes })
+}

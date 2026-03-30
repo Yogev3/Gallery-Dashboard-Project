@@ -1,0 +1,6 @@
+export const MONGO_URI     = process.env.MONGO_URI     ?? 'mongodb://localhost:27017'
+export const MONGO_DB_NAME = process.env.MONGO_DB_NAME ?? 'events_db'
+export const EVENTS_COLL   = process.env.EVENTS_COLL   ?? 'new-events'
+export const SOURCES_COLL  = process.env.SOURCES_COLL  ?? 'sources'
+export const USE_MOCK      = (process.env.USE_MOCK ?? 'true') === 'true'
+export const RESTART_API_BASE_URL = process.env.RESTART_API_BASE_URL ?? 'http://localhost:8080/api'
