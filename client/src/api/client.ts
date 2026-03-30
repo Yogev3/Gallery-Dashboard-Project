@@ -1,4 +1,4 @@
-import { Event, EventFilters, RestartResult, Source } from '../types'
+import { Event, EventFilters, EventsStats, PaginatedResult, RestartResult, Source } from '../types'
 
 const BASE = '/api'
 
@@ -44,18 +44,37 @@ export async function fetchFailedEvents(limit = 3000): Promise<Event[]> {
   return get<Event[]>(`${BASE}/events/failed`, { limit: String(limit) })
 }
 
+export async function fetchFailedEventsPaginated(page: number, pageSize: number, sourceSystems?: string[]): Promise<PaginatedResult<Event>> {
+  const params: Record<string, string | undefined> = {
+    page: String(page),
+    pageSize: String(pageSize),
+  }
+  if (sourceSystems?.length) params.sourceSystems = sourceSystems.join(',')
+  return get<PaginatedResult<Event>>(`${BASE}/events/failed`, params)
+}
+
 export async function fetchPendingRestartEvents(limit = 3000): Promise<Event[]> {
   return get<Event[]>(`${BASE}/events/pending-restart`, { limit: String(limit) })
+}
+
+export async function fetchPendingRestartEventsPaginated(page: number, pageSize: number): Promise<PaginatedResult<Event>> {
+  return get<PaginatedResult<Event>>(`${BASE}/events/pending-restart`, {
+    page: String(page),
+    pageSize: String(pageSize),
+  })
+}
+
+export async function fetchEventsStats(filters?: { sourceSystems?: string[]; imageFormats?: string[] }): Promise<EventsStats> {
+  const params: Record<string, string | undefined> = {}
+  if (filters?.sourceSystems?.length) params.sourceSystems = filters.sourceSystems.join(',')
+  if (filters?.imageFormats?.length) params.imageFormats = filters.imageFormats.join(',')
+  return get<EventsStats>(`${BASE}/events/stats`, params)
 }
 
 export async function fetchImageFormats(): Promise<string[]> {
   return get<string[]>(`${BASE}/formats`)
 }
 
-export async function restartEvent(
-  eventId: string,
-  priority: string,
-  notes: string,
-): Promise<RestartResult> {
-  return post<RestartResult>(`${BASE}/restart`, { eventId, priority, notes })
+export async function restartEvent(eventId: string): Promise<RestartResult> {
+  return post<RestartResult>(`${BASE}/restart`, { eventId })
 }

@@ -1,16 +1,12 @@
 import { useState, FormEvent } from 'react'
 import { restartEvent } from '../api/client'
 
-const VALID_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
-
 interface RestartFormProps {
   onSuccess?: (msg: string) => void
 }
 
 export default function RestartForm({ onSuccess }: RestartFormProps) {
   const [eventId, setEventId]   = useState('')
-  const [priority, setPriority] = useState('MEDIUM')
-  const [notes, setNotes]       = useState('')
   const [loading, setLoading]   = useState(false)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
   const [errorMsg, setErrorMsg]     = useState<string | null>(null)
@@ -22,12 +18,11 @@ export default function RestartForm({ onSuccess }: RestartFormProps) {
     setLoading(true)
 
     try {
-      const result = await restartEvent(eventId.trim(), priority, notes)
+      const result = await restartEvent(eventId.trim())
       if (result.success) {
         const msg = result.message ?? `אתחול עבור ${result.eventId} נשלח בהצלחה`
         setSuccessMsg(msg)
         setEventId('')
-        setNotes('')
         onSuccess?.(msg)
       } else {
         setErrorMsg(result.error ?? 'שגיאה לא ידועה')
@@ -52,29 +47,6 @@ export default function RestartForm({ onSuccess }: RestartFormProps) {
             onChange={e => setEventId(e.target.value)}
             placeholder="img_XXXXXXX"
             required
-          />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="priority">עדיפות</label>
-          <select
-            id="priority"
-            value={priority}
-            onChange={e => setPriority(e.target.value)}
-          >
-            {VALID_PRIORITIES.map(p => (
-              <option key={p} value={p}>{p}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="notes">הערות</label>
-          <textarea
-            id="notes"
-            value={notes}
-            onChange={e => setNotes(e.target.value)}
-            placeholder="סיבת האתחול..."
           />
         </div>
 

@@ -139,6 +139,31 @@ h1 {
   cursor: pointer;
 }
 
+/* ── Tables grid (side-by-side) ─────────────────────────── */
+.tables-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.table-panel {
+  background: white;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.table-panel .table-scroll {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 500px;
+}
+
 /* ── Charts grid ────────────────────────────────────────── */
 .charts-grid-2 {
   display: grid;
@@ -152,6 +177,7 @@ h1 {
   border-radius: 8px;
   padding: 16px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  overflow: visible;
 }
 
 .section-title {
@@ -281,6 +307,7 @@ h1 {
   padding: 16px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.08);
   margin-bottom: 24px;
+  overflow: visible;
 }
 
 /* ── Multi-select checkboxes ────────────────────────────── */

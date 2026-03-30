@@ -42,17 +42,43 @@ export class EventsController {
 
   @Get('events/failed')
   async getFailedEvents(@Query() query: Record<string, string>) {
-    const limit = query.limit ? parseInt(query.limit, 10) : 3000
+    const page = query.page ? parseInt(query.page, 10) : undefined
+    const pageSize = query.pageSize ? parseInt(query.pageSize, 10) : undefined
     const sourceSystems = query.sourceSystems
       ? query.sourceSystems.split(',').filter(Boolean)
       : undefined
+
+    if (page !== undefined && pageSize !== undefined) {
+      return this.eventsService.fetchFailedEventsPaginated(page, pageSize, sourceSystems)
+    }
+
+    const limit = query.limit ? parseInt(query.limit, 10) : 3000
     return this.eventsService.fetchFailedEvents(limit, sourceSystems)
   }
 
   @Get('events/pending-restart')
   async getPendingRestartEvents(@Query() query: Record<string, string>) {
+    const page = query.page ? parseInt(query.page, 10) : undefined
+    const pageSize = query.pageSize ? parseInt(query.pageSize, 10) : undefined
+
+    if (page !== undefined && pageSize !== undefined) {
+      return this.eventsService.fetchPendingRestartEventsPaginated(page, pageSize)
+    }
+
     const limit = query.limit ? parseInt(query.limit, 10) : 3000
     return this.eventsService.fetchPendingRestartEvents(limit)
+  }
+
+  @Get('events/stats')
+  async getEventsStats(@Query() query: Record<string, string>) {
+    const filters: { sourceSystems?: string[]; imageFormats?: string[] } = {}
+    if (query.sourceSystems) {
+      filters.sourceSystems = query.sourceSystems.split(',').filter(Boolean)
+    }
+    if (query.imageFormats) {
+      filters.imageFormats = query.imageFormats.split(',').filter(Boolean)
+    }
+    return this.eventsService.fetchStats(filters)
   }
 
   @Get('formats')
@@ -62,10 +88,6 @@ export class EventsController {
 
   @Post('restart')
   async restartEvent(@Body() body: RestartEventDto) {
-    return this.restartService.restartEvent(
-      body.eventId,
-      body.priority,
-      body.notes ?? '',
-    )
+    return this.restartService.restartEvent(body.eventId)
   }
 }

@@ -1,26 +1,26 @@
-import { NotImplementedException } from '@nestjs/common'
-// Uncomment when USE_MOCK=false:
-// import { MongoClient, Db } from 'mongodb'
-import { MONGO_URI, MONGO_DB_NAME } from './config'
+import { Injectable, OnModuleDestroy } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
+import { MongoClient, Db } from 'mongodb'
 
-// Uncomment when USE_MOCK=false:
-// let client: MongoClient | null = null
+@Injectable()
+export class DbService implements OnModuleDestroy {
+  private client: MongoClient | null = null
+  private db: Db | null = null
 
-/**
- * Returns a cached MongoDB Db handle.
- * Uncomment the body below and remove the throw when USE_MOCK=false.
- */
-export async function getDb(): Promise<any> {
-  // --- Uncomment when USE_MOCK=false ---
-  // if (!client) {
-  //   client = new MongoClient(MONGO_URI)
-  //   await client.connect()
-  // }
-  // return client.db(MONGO_DB_NAME)
+  constructor(private readonly config: ConfigService) {}
 
-  void MONGO_URI
-  void MONGO_DB_NAME
-  throw new NotImplementedException(
-    'MongoDB is disabled. Set USE_MOCK=false and uncomment db.ts to enable real database access.',
-  )
+  async getDb(): Promise<Db> {
+    if (!this.db) {
+      const uri = this.config.get<string>('MONGO_URI')!
+      const dbName = this.config.get<string>('MONGO_DB_NAME')!
+      this.client = new MongoClient(uri)
+      await this.client.connect()
+      this.db = this.client.db(dbName)
+    }
+    return this.db
+  }
+
+  async onModuleDestroy() {
+    await this.client?.close()
+  }
 }

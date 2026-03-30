@@ -19,23 +19,6 @@ function formatCellValue(key: keyof Event, value: unknown): string {
   return String(value)
 }
 
-const COLUMN_LABELS: Partial<Record<keyof Event, string>> = {
-  imageId:        'מזהה תמונה',
-  personId:       'מזהה אדם',
-  imageHash:      'האש',
-  imageFormat:    'פורמט',
-  sourceSystem:   'מקור',
-  semiSource:     'מקור משני',
-  createdDate:    'תאריך יצירה',
-  receivedDate:   'תאריך קבלה',
-  isFailed:       'סטטוס',
-  amountOfFaces:  'פנים',
-  failureReason:  'סיבת כישלון',
-  pendingRestart: 'ממתין לאתחול',
-  restartCount:   'מספר אתחולים',
-  facesPositions: 'מיקומי פנים',
-}
-
 export default function EventsTable({ events, columns }: EventsTableProps) {
   return (
     <div className="table-scroll">
@@ -43,7 +26,7 @@ export default function EventsTable({ events, columns }: EventsTableProps) {
         <thead>
           <tr>
             {columns.map(col => (
-              <th key={col}>{COLUMN_LABELS[col] ?? col}</th>
+              <th key={col}>{col}</th>
             ))}
           </tr>
         </thead>

@@ -64,8 +64,8 @@ export function generateMockEvents(n: number): Event[] {
     const receivedMs = createdMs + randomInt(1, 60) * 1000
 
     const failureReason  = isFailed ? FAILURE_REASONS[randomInt(0, FAILURE_REASONS.length - 1)] : undefined
-    const pendingRestart = isFailed ? Math.random() < 0.35 : false
-    const restartCount   = isFailed ? weightedChoice([0, 1, 2, 3], [50, 30, 15, 5]) : 0
+    const restartCount   = isFailed ? weightedChoice([0, 1, 2, 3, 4, 5], [35, 25, 15, 10, 10, 5]) : 0
+    const pendingRestart = isFailed && restartCount < 3
 
     const facesPositions = Array.from({ length: faceCount }, () => ({
       left:   randomInt(0, 400),

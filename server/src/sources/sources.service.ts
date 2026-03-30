@@ -1,21 +1,23 @@
 import { Injectable } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
 import { Source } from '../types'
-import { USE_MOCK } from '../lib/config'
 import { MOCK_SOURCES } from '../lib/mock-data'
-// import { getDb } from '../lib/db'
-// import { SOURCES_COLL } from '../lib/config'
+import { DbService } from '../lib/db'
 
 @Injectable()
 export class SourcesService {
+  constructor(
+    private readonly config: ConfigService,
+    private readonly dbService: DbService,
+  ) {}
+
   async fetchSources(): Promise<Source[]> {
-    if (USE_MOCK) {
+    if (this.config.get<boolean>('USE_MOCK')) {
       return MOCK_SOURCES
     }
 
-    // --- MongoDB version (uncomment when USE_MOCK=false) ---
-    // const db = await getDb()
-    // return db.collection(SOURCES_COLL).find({}, { projection: { _id: 0 } }).toArray()
-
-    return MOCK_SOURCES
+    const db = await this.dbService.getDb()
+    const coll = this.config.get<string>('SOURCES_COLL')!
+    return db.collection<Source>(coll).find({}, { projection: { _id: 0 } }).toArray()
   }
 }
