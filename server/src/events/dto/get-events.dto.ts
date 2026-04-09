@@ -3,7 +3,7 @@ export class GetEventsDto {
   page?: number
   pageSize?: number
   isFailed?: boolean
-  sourceSystems?: string[]
-  imageFormats?: string[]
+  sourceIds?: number[]
+  formats?: string[]
   pendingRestart?: boolean
 }

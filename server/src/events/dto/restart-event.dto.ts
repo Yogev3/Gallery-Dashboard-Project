@@ -1,3 +1,3 @@
 export class RestartEventDto {
-  eventId: string
+  imageIds: string[]
 }

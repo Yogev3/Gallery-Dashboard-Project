@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -7,6 +7,7 @@ import {
 
 import KpiCard from './KpiCard'
 import EventsTable from './EventsTable'
+import RestartForm from './RestartForm'
 import {
   fetchSources,
   fetchEventsStats,
@@ -29,7 +30,7 @@ const EMPTY_STATS: EventsStats = {
 
 interface MultiSelectProps {
   label: string
-  options: string[]
+  options: { value: string; display: string }[]
   selected: string[]
   onChange: (v: string[]) => void
 }
@@ -53,7 +54,7 @@ function MultiSelect({ label, options, selected, onChange }: MultiSelectProps) {
 
   const displayText = selected.length === 0
     ? `${label} (הכל)`
-    : selected.join(', ')
+    : selected.map(v => options.find(o => o.value === v)?.display ?? v).join(', ')
 
   return (
     <div className="multi-select-dropdown" ref={ref}>
@@ -69,13 +70,13 @@ function MultiSelect({ label, options, selected, onChange }: MultiSelectProps) {
       {open && (
         <div className="dropdown-menu">
           {options.map(opt => (
-            <label key={opt} className="dropdown-item">
+            <label key={opt.value} className="dropdown-item">
               <input
                 type="checkbox"
-                checked={selected.includes(opt)}
-                onChange={() => toggle(opt)}
+                checked={selected.includes(opt.value)}
+                onChange={() => toggle(opt.value)}
               />
-              {opt}
+              {opt.display}
             </label>
           ))}
         </div>
@@ -142,15 +143,14 @@ function Pagination({ page, totalPages, pageSize, totalItems, onPageChange, onPa
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
 const STATUS_COLORS: Record<string, string> = {
-  'כישלון': '#C1121F',
-  'הצלחה':  '#2D6A4F',
+  'כישלון': '#FF2D6F',
+  'הצלחה':  '#00D68F',
 }
 
 export default function Dashboard() {
-  // filters
-  const [sourceSystems, setSourceSystems] = useState<string[]>([])
-  const [imageFormats, setImageFormats]   = useState<string[]>([])
-
+  // filters — sourceIds stored as string[] for the multi-select, converted to number[] for API
+  const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([])
+  const [selectedFormats, setSelectedFormats]     = useState<string[]>([])
 
   // pagination
   const [failedPage, setFailedPage]   = useState(1)
@@ -165,6 +165,15 @@ export default function Dashboard() {
   const [formats, setFormats]             = useState<string[]>([])
   const [loading, setLoading]             = useState(true)
   const [eventsLoading, setEventsLoading] = useState(false)
+
+  // sourceId → SourceName lookup
+  const sourceNameMap = useMemo(() => {
+    const m: Record<string, string> = {}
+    for (const s of sources) {
+      m[String(s.sourceId)] = s.SourceName
+    }
+    return m
+  }, [sources])
 
   // load static data on mount
   useEffect(() => {
@@ -181,13 +190,12 @@ export default function Dashboard() {
   const loadData = useCallback(async () => {
     setEventsLoading(true)
     try {
-      const statsFilters = {
-        sourceSystems: sourceSystems.length ? sourceSystems : undefined,
-        imageFormats: imageFormats.length ? imageFormats : undefined,
-      }
+      const sourceIds = selectedSourceIds.length ? selectedSourceIds.map(Number) : undefined
+      const fmts = selectedFormats.length ? selectedFormats : undefined
+
       const [st, failed, pending] = await Promise.all([
-        fetchEventsStats(statsFilters),
-        fetchFailedEventsPaginated(failedPage, pageSize, sourceSystems.length ? sourceSystems : undefined),
+        fetchEventsStats({ sourceIds, formats: fmts }),
+        fetchFailedEventsPaginated(failedPage, pageSize, sourceIds),
         fetchPendingRestartEventsPaginated(pendingPage, pageSize),
       ])
       setStats(st)
@@ -198,7 +206,7 @@ export default function Dashboard() {
     } finally {
       setEventsLoading(false)
     }
-  }, [sourceSystems, imageFormats, failedPage, pendingPage, pageSize])
+  }, [selectedSourceIds, selectedFormats, failedPage, pendingPage, pageSize])
 
   useEffect(() => {
     if (!loading) {
@@ -210,13 +218,23 @@ export default function Dashboard() {
     return <div className="loading-text">טוען נתונים...</div>
   }
 
-  // ── stats from server (aggregated over ALL events) ────────────────────────
+  // ── helper: resolve sourceId to name in stats arrays ─────────────────────
+  function resolveSourceName(id: string): string {
+    return sourceNameMap[id] ?? id
+  }
+
+  // ── stats from server ────────────────────────────────────────────────────
   const { totalEvents, successCount, failedCount, pendingCount,
     dailyFailures, hourlyEvents, failedBySource, sourceCounts,
     formatCounts, reasonCounts, facesCounts, statusSplit,
     sourceStatusStacked } = stats
 
-  const sourceNames = sources.map(s => s.SourceName)
+  // map sourceId → SourceName for chart display
+  const sourceCountsDisplay = sourceCounts.map(s => ({ ...s, name: resolveSourceName(s.name) }))
+  const failedBySourceDisplay = failedBySource.map(s => ({ ...s, name: resolveSourceName(s.name) }))
+  const sourceStatusDisplay = sourceStatusStacked.map(s => ({ ...s, source: resolveSourceName(s.source) }))
+
+  const sourceOptions = sources.map(s => ({ value: String(s.sourceId), display: s.SourceName }))
 
   // ── tables use server-side paginated data directly
   const failedTableEvents = failedResult.data
@@ -233,19 +251,19 @@ export default function Dashboard() {
           מקור
           <MultiSelect
             label="מקור"
-            options={sourceNames}
-            selected={sourceSystems}
-            onChange={setSourceSystems}
+            options={sourceOptions}
+            selected={selectedSourceIds}
+            onChange={setSelectedSourceIds}
           />
         </label>
 
         <label>
           פורמט תמונה
           <select
-            value={imageFormats[0] ?? ''}
+            value={selectedFormats[0] ?? ''}
             onChange={e => {
               const v = e.target.value
-              setImageFormats(v ? [v] : [])
+              setSelectedFormats(v ? [v] : [])
             }}
           >
             <option value="">הכל</option>
@@ -257,19 +275,11 @@ export default function Dashboard() {
 
         <button
           type="button"
-          style={{
-            padding: '6px 16px',
-            background: '#1D3557',
-            color: 'white',
-            border: 'none',
-            borderRadius: 6,
-            cursor: 'pointer',
-            alignSelf: 'flex-end',
-          }}
+          className="refresh-btn"
           onClick={loadData}
           disabled={eventsLoading}
         >
-          {eventsLoading ? 'טוען...' : 'רענן'}
+          {eventsLoading ? '⟳ LOADING...' : '⟳ REFRESH'}
         </button>
       </div>
 
@@ -280,29 +290,6 @@ export default function Dashboard() {
         <KpiCard label='הצלחות (סה"כ)'    value={successCount}  variant="ok"      />
         <KpiCard label='סה"כ אירועים'     value={totalEvents}   variant="neutral" />
       </div>
-
-      {/* ── Failures over time ──────────────────────────────────────────── */}
-      <div className="chart-card-full">
-        <p className="section-title">כישלונות לפי יום</p>
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={dailyFailures} margin={{ left: 10 }}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="day" tick={{ fontSize: 11 }} />
-            <YAxis allowDecimals={false} width={50} />
-            <Tooltip />
-            <Line
-              type="monotone"
-              dataKey="count"
-              stroke="#C1121F"
-              strokeWidth={2}
-              dot={{ r: 4 }}
-              name="כישלונות"
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-
-      <hr className="divider" />
 
       {/* ── Side-by-side tables ────────────────────────────────────────── */}
       <div className="tables-grid-2">
@@ -320,9 +307,10 @@ export default function Dashboard() {
           />
           <EventsTable
             events={failedTableEvents}
+            sourceNameMap={sourceNameMap}
             columns={[
-              'imageId', 'personId', 'sourceSystem', 'semiSource',
-              'imageFormat', 'failureReason', 'restartCount',
+              'imageId', 'personId', 'sourceId', 'semiSource',
+              'format', 'failureReason', 'restartCount',
               'amountOfFaces', 'createdDate', 'receivedDate',
             ]}
           />
@@ -337,9 +325,15 @@ export default function Dashboard() {
         </div>
 
         <div className="table-panel">
-          <p className="section-title">
-            ממתינים להפעלה מחדש ({pendingCount.toLocaleString()})
-          </p>
+          <div className="table-panel-header">
+            <p className="section-title">
+              ממתינים להפעלה מחדש ({pendingCount.toLocaleString()})
+            </p>
+            <RestartForm
+              failedImageIds={failedTableEvents.map(e => e.imageId)}
+              onSuccess={() => loadData()}
+            />
+          </div>
           <Pagination
             page={pendingPage}
             totalPages={pendingCountPages}
@@ -350,9 +344,10 @@ export default function Dashboard() {
           />
           <EventsTable
             events={pendingTableEvents}
+            sourceNameMap={sourceNameMap}
             columns={[
-              'imageId', 'personId', 'sourceSystem', 'semiSource',
-              'imageFormat', 'failureReason', 'restartCount',
+              'imageId', 'personId', 'sourceId', 'semiSource',
+              'format', 'failureReason', 'restartCount',
               'amountOfFaces', 'createdDate', 'receivedDate',
             ]}
           />
@@ -365,6 +360,30 @@ export default function Dashboard() {
             onPageSizeChange={s => { setPageSize(s); setFailedPage(1); setPendingPage(1) }}
           />
         </div>
+      </div>
+
+      <hr className="divider" />
+
+      {/* ── Failures over time ──────────────────────────────────────────── */}
+      <div className="chart-card-full">
+        <p className="section-title">כישלונות לפי יום</p>
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={dailyFailures} margin={{ left: 10 }}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="day" tick={{ fontSize: 11 }} />
+            <YAxis allowDecimals={false} width={50} />
+            <Tooltip />
+            <Line
+              type="monotone"
+              dataKey="count"
+              stroke="#FF2D6F"
+              strokeWidth={2}
+              dot={{ r: 3, fill: '#FF2D6F', strokeWidth: 0 }}
+              activeDot={{ r: 5, fill: '#FF2D6F', stroke: 'rgba(255,45,111,0.3)', strokeWidth: 4 }}
+              name="כישלונות"
+            />
+          </LineChart>
+        </ResponsiveContainer>
       </div>
 
       <hr className="divider" />
@@ -401,12 +420,12 @@ export default function Dashboard() {
         <div className="chart-card">
           <p className="section-title">כישלונות לפי מקור</p>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={failedBySource} margin={{ top: 20, bottom: 10, left: 10 }}>
+            <BarChart data={failedBySourceDisplay} margin={{ top: 20, bottom: 10, left: 10 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" tick={{ fontSize: 12 }} />
               <YAxis allowDecimals={false} width={50} />
               <Tooltip />
-              <Bar dataKey="count" fill="#C1121F" name="כישלונות" label={{ position: 'top', fontSize: 11 }} />
+              <Bar dataKey="count" fill="#FF2D6F" name="כישלונות" radius={[4, 4, 0, 0]} label={{ position: 'top', fontSize: 10, fill: '#8b97b0' }} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -419,17 +438,17 @@ export default function Dashboard() {
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
-                data={sourceCounts}
+                data={sourceCountsDisplay}
                 dataKey="count"
                 nameKey="name"
                 cx="50%"
                 cy="50%"
                 outerRadius={90}
               >
-                {sourceCounts.map((entry, i) => (
+                {sourceCountsDisplay.map((entry, i) => (
                   <Cell
                     key={entry.name}
-                    fill={['#1D3557','#457B9D','#A8DADC','#2D6A4F','#E76F00'][i % 5]}
+                    fill={['#00E5FF','#FF2D6F','#FFB800','#00D68F','#A78BFA'][i % 5]}
                   />
                 ))}
               </Pie>
@@ -447,7 +466,7 @@ export default function Dashboard() {
               <XAxis dataKey="name" tick={{ fontSize: 12 }} />
               <YAxis allowDecimals={false} width={50} />
               <Tooltip />
-              <Bar dataKey="count" fill="#457B9D" name="כמות" label={{ position: 'top', fontSize: 11 }} />
+              <Bar dataKey="count" fill="#00E5FF" name="כמות" radius={[4, 4, 0, 0]} label={{ position: 'top', fontSize: 10, fill: '#8b97b0' }} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -458,14 +477,14 @@ export default function Dashboard() {
         <div className="chart-card">
           <p className="section-title">סטטוס לפי מקור</p>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={sourceStatusStacked} margin={{ top: 20, bottom: 10, left: 10 }}>
+            <BarChart data={sourceStatusDisplay} margin={{ top: 20, bottom: 10, left: 10 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="source" tick={{ fontSize: 12 }} />
               <YAxis allowDecimals={false} width={50} />
               <Tooltip />
               <Legend wrapperStyle={{ paddingTop: 10 }} />
-              <Bar dataKey="success" stackId="a" fill="#2D6A4F" name="הצלחה" />
-              <Bar dataKey="failed" stackId="a" fill="#C1121F" name="כישלון" />
+              <Bar dataKey="success" stackId="a" fill="#00D68F" name="הצלחה" radius={[0, 0, 0, 0]} />
+              <Bar dataKey="failed" stackId="a" fill="#FF2D6F" name="כישלון" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -478,7 +497,7 @@ export default function Dashboard() {
               <XAxis type="number" allowDecimals={false} width={50} />
               <YAxis dataKey="name" type="category" width={200} tick={{ fontSize: 11 }} />
               <Tooltip />
-              <Bar dataKey="count" fill="#E76F00" name="כמות" label={{ position: 'right', fontSize: 11 }} />
+              <Bar dataKey="count" fill="#FFB800" name="כמות" radius={[0, 4, 4, 0]} label={{ position: 'right', fontSize: 10, fill: '#8b97b0' }} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -494,7 +513,7 @@ export default function Dashboard() {
               <XAxis dataKey="name" label={{ value: 'כמות פנים', position: 'insideBottom', offset: -2 }} />
               <YAxis allowDecimals={false} width={50} />
               <Tooltip />
-              <Bar dataKey="count" fill="#1D3557" name="אירועים" label={{ position: 'top', fontSize: 11 }} />
+              <Bar dataKey="count" fill="#A78BFA" name="אירועים" radius={[4, 4, 0, 0]} label={{ position: 'top', fontSize: 10, fill: '#8b97b0' }} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -510,7 +529,7 @@ export default function Dashboard() {
               <Line
                 type="monotone"
                 dataKey="count"
-                stroke="#457B9D"
+                stroke="#00E5FF"
                 strokeWidth={2}
                 dot={false}
                 name="אירועים"

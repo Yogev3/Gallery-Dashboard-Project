@@ -27,11 +27,11 @@ export class EventsController {
     if (query.isFailed !== undefined) {
       filters.isFailed = query.isFailed === 'true'
     }
-    if (query.sourceSystems) {
-      filters.sourceSystems = query.sourceSystems.split(',').filter(Boolean)
+    if (query.sourceIds) {
+      filters.sourceIds = query.sourceIds.split(',').filter(Boolean).map(Number)
     }
-    if (query.imageFormats) {
-      filters.imageFormats = query.imageFormats.split(',').filter(Boolean)
+    if (query.formats) {
+      filters.formats = query.formats.split(',').filter(Boolean)
     }
     if (query.pendingRestart !== undefined) {
       filters.pendingRestart = query.pendingRestart === 'true'
@@ -44,16 +44,16 @@ export class EventsController {
   async getFailedEvents(@Query() query: Record<string, string>) {
     const page = query.page ? parseInt(query.page, 10) : undefined
     const pageSize = query.pageSize ? parseInt(query.pageSize, 10) : undefined
-    const sourceSystems = query.sourceSystems
-      ? query.sourceSystems.split(',').filter(Boolean)
+    const sourceIds = query.sourceIds
+      ? query.sourceIds.split(',').filter(Boolean).map(Number)
       : undefined
 
     if (page !== undefined && pageSize !== undefined) {
-      return this.eventsService.fetchFailedEventsPaginated(page, pageSize, sourceSystems)
+      return this.eventsService.fetchFailedEventsPaginated(page, pageSize, sourceIds)
     }
 
     const limit = query.limit ? parseInt(query.limit, 10) : 3000
-    return this.eventsService.fetchFailedEvents(limit, sourceSystems)
+    return this.eventsService.fetchFailedEvents(limit, sourceIds)
   }
 
   @Get('events/pending-restart')
@@ -71,12 +71,12 @@ export class EventsController {
 
   @Get('events/stats')
   async getEventsStats(@Query() query: Record<string, string>) {
-    const filters: { sourceSystems?: string[]; imageFormats?: string[] } = {}
-    if (query.sourceSystems) {
-      filters.sourceSystems = query.sourceSystems.split(',').filter(Boolean)
+    const filters: { sourceIds?: number[]; formats?: string[] } = {}
+    if (query.sourceIds) {
+      filters.sourceIds = query.sourceIds.split(',').filter(Boolean).map(Number)
     }
-    if (query.imageFormats) {
-      filters.imageFormats = query.imageFormats.split(',').filter(Boolean)
+    if (query.formats) {
+      filters.formats = query.formats.split(',').filter(Boolean)
     }
     return this.eventsService.fetchStats(filters)
   }
@@ -88,6 +88,6 @@ export class EventsController {
 
   @Post('restart')
   async restartEvent(@Body() body: RestartEventDto) {
-    return this.restartService.restartEvent(body.eventId)
+    return this.restartService.restartEvents(body.imageIds)
   }
 }
