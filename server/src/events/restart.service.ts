@@ -6,12 +6,12 @@ import { RestartResult } from '../types'
 export class RestartService {
   constructor(private readonly config: ConfigService) {}
 
-  async restartEvent(eventId: string): Promise<RestartResult> {
-    if (!eventId || !eventId.trim()) {
+  async restartEvents(imageIds: string[]): Promise<RestartResult> {
+    if (!imageIds || imageIds.length === 0) {
       return {
         success: false,
-        eventId,
-        error: 'מזהה אירוע לא יכול להיות ריק',
+        eventId: '',
+        error: 'רשימת מזהי תמונות לא יכולה להיות ריקה',
       }
     }
 
@@ -20,12 +20,16 @@ export class RestartService {
       const response = await fetch(restartUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ eventId }),
+        body: JSON.stringify({ imageIds }),
       })
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
-      return { success: true, eventId, message: `אתחול עבור ${eventId} נשלח בהצלחה` }
+      return {
+        success: true,
+        eventId: imageIds.join(', '),
+        message: `אתחול עבור ${imageIds.length} אירועים נשלח בהצלחה`,
+      }
     } catch (err: any) {
-      return { success: false, eventId, error: err.message ?? 'שגיאת רשת' }
+      return { success: false, eventId: imageIds.join(', '), error: err.message ?? 'שגיאת רשת' }
     }
   }
 }

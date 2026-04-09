@@ -75,6 +75,6 @@ export async function fetchImageFormats(): Promise<string[]> {
   return get<string[]>(`${BASE}/formats`)
 }
 
-export async function restartEvent(eventId: string): Promise<RestartResult> {
-  return post<RestartResult>(`${BASE}/restart`, { eventId })
+export async function restartEvents(imageIds: string[]): Promise<RestartResult> {
+  return post<RestartResult>(`${BASE}/restart`, { imageIds })
 }

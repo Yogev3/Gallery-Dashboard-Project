@@ -7,6 +7,7 @@ import {
 
 import KpiCard from './KpiCard'
 import EventsTable from './EventsTable'
+import RestartForm from './RestartForm'
 import {
   fetchSources,
   fetchEventsStats,
@@ -142,8 +143,8 @@ function Pagination({ page, totalPages, pageSize, totalItems, onPageChange, onPa
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
 const STATUS_COLORS: Record<string, string> = {
-  'כישלון': '#C1121F',
-  'הצלחה':  '#2D6A4F',
+  'כישלון': '#FF2D6F',
+  'הצלחה':  '#00D68F',
 }
 
 export default function Dashboard() {
@@ -274,19 +275,11 @@ export default function Dashboard() {
 
         <button
           type="button"
-          style={{
-            padding: '6px 16px',
-            background: '#1D3557',
-            color: 'white',
-            border: 'none',
-            borderRadius: 6,
-            cursor: 'pointer',
-            alignSelf: 'flex-end',
-          }}
+          className="refresh-btn"
           onClick={loadData}
           disabled={eventsLoading}
         >
-          {eventsLoading ? 'טוען...' : 'רענן'}
+          {eventsLoading ? '⟳ LOADING...' : '⟳ REFRESH'}
         </button>
       </div>
 
@@ -297,29 +290,6 @@ export default function Dashboard() {
         <KpiCard label='הצלחות (סה"כ)'    value={successCount}  variant="ok"      />
         <KpiCard label='סה"כ אירועים'     value={totalEvents}   variant="neutral" />
       </div>
-
-      {/* ── Failures over time ──────────────────────────────────────────── */}
-      <div className="chart-card-full">
-        <p className="section-title">כישלונות לפי יום</p>
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={dailyFailures} margin={{ left: 10 }}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="day" tick={{ fontSize: 11 }} />
-            <YAxis allowDecimals={false} width={50} />
-            <Tooltip />
-            <Line
-              type="monotone"
-              dataKey="count"
-              stroke="#C1121F"
-              strokeWidth={2}
-              dot={{ r: 4 }}
-              name="כישלונות"
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-
-      <hr className="divider" />
 
       {/* ── Side-by-side tables ────────────────────────────────────────── */}
       <div className="tables-grid-2">
@@ -355,9 +325,15 @@ export default function Dashboard() {
         </div>
 
         <div className="table-panel">
-          <p className="section-title">
-            ממתינים להפעלה מחדש ({pendingCount.toLocaleString()})
-          </p>
+          <div className="table-panel-header">
+            <p className="section-title">
+              ממתינים להפעלה מחדש ({pendingCount.toLocaleString()})
+            </p>
+            <RestartForm
+              failedImageIds={failedTableEvents.map(e => e.imageId)}
+              onSuccess={() => loadData()}
+            />
+          </div>
           <Pagination
             page={pendingPage}
             totalPages={pendingCountPages}
@@ -384,6 +360,30 @@ export default function Dashboard() {
             onPageSizeChange={s => { setPageSize(s); setFailedPage(1); setPendingPage(1) }}
           />
         </div>
+      </div>
+
+      <hr className="divider" />
+
+      {/* ── Failures over time ──────────────────────────────────────────── */}
+      <div className="chart-card-full">
+        <p className="section-title">כישלונות לפי יום</p>
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={dailyFailures} margin={{ left: 10 }}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="day" tick={{ fontSize: 11 }} />
+            <YAxis allowDecimals={false} width={50} />
+            <Tooltip />
+            <Line
+              type="monotone"
+              dataKey="count"
+              stroke="#FF2D6F"
+              strokeWidth={2}
+              dot={{ r: 3, fill: '#FF2D6F', strokeWidth: 0 }}
+              activeDot={{ r: 5, fill: '#FF2D6F', stroke: 'rgba(255,45,111,0.3)', strokeWidth: 4 }}
+              name="כישלונות"
+            />
+          </LineChart>
+        </ResponsiveContainer>
       </div>
 
       <hr className="divider" />
@@ -425,7 +425,7 @@ export default function Dashboard() {
               <XAxis dataKey="name" tick={{ fontSize: 12 }} />
               <YAxis allowDecimals={false} width={50} />
               <Tooltip />
-              <Bar dataKey="count" fill="#C1121F" name="כישלונות" label={{ position: 'top', fontSize: 11 }} />
+              <Bar dataKey="count" fill="#FF2D6F" name="כישלונות" radius={[4, 4, 0, 0]} label={{ position: 'top', fontSize: 10, fill: '#8b97b0' }} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -448,7 +448,7 @@ export default function Dashboard() {
                 {sourceCountsDisplay.map((entry, i) => (
                   <Cell
                     key={entry.name}
-                    fill={['#1D3557','#457B9D','#A8DADC','#2D6A4F','#E76F00'][i % 5]}
+                    fill={['#00E5FF','#FF2D6F','#FFB800','#00D68F','#A78BFA'][i % 5]}
                   />
                 ))}
               </Pie>
@@ -466,7 +466,7 @@ export default function Dashboard() {
               <XAxis dataKey="name" tick={{ fontSize: 12 }} />
               <YAxis allowDecimals={false} width={50} />
               <Tooltip />
-              <Bar dataKey="count" fill="#457B9D" name="כמות" label={{ position: 'top', fontSize: 11 }} />
+              <Bar dataKey="count" fill="#00E5FF" name="כמות" radius={[4, 4, 0, 0]} label={{ position: 'top', fontSize: 10, fill: '#8b97b0' }} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -483,8 +483,8 @@ export default function Dashboard() {
               <YAxis allowDecimals={false} width={50} />
               <Tooltip />
               <Legend wrapperStyle={{ paddingTop: 10 }} />
-              <Bar dataKey="success" stackId="a" fill="#2D6A4F" name="הצלחה" />
-              <Bar dataKey="failed" stackId="a" fill="#C1121F" name="כישלון" />
+              <Bar dataKey="success" stackId="a" fill="#00D68F" name="הצלחה" radius={[0, 0, 0, 0]} />
+              <Bar dataKey="failed" stackId="a" fill="#FF2D6F" name="כישלון" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -497,7 +497,7 @@ export default function Dashboard() {
               <XAxis type="number" allowDecimals={false} width={50} />
               <YAxis dataKey="name" type="category" width={200} tick={{ fontSize: 11 }} />
               <Tooltip />
-              <Bar dataKey="count" fill="#E76F00" name="כמות" label={{ position: 'right', fontSize: 11 }} />
+              <Bar dataKey="count" fill="#FFB800" name="כמות" radius={[0, 4, 4, 0]} label={{ position: 'right', fontSize: 10, fill: '#8b97b0' }} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -513,7 +513,7 @@ export default function Dashboard() {
               <XAxis dataKey="name" label={{ value: 'כמות פנים', position: 'insideBottom', offset: -2 }} />
               <YAxis allowDecimals={false} width={50} />
               <Tooltip />
-              <Bar dataKey="count" fill="#1D3557" name="אירועים" label={{ position: 'top', fontSize: 11 }} />
+              <Bar dataKey="count" fill="#A78BFA" name="אירועים" radius={[4, 4, 0, 0]} label={{ position: 'top', fontSize: 10, fill: '#8b97b0' }} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -529,7 +529,7 @@ export default function Dashboard() {
               <Line
                 type="monotone"
                 dataKey="count"
-                stroke="#457B9D"
+                stroke="#00E5FF"
                 strokeWidth={2}
                 dot={false}
                 name="אירועים"

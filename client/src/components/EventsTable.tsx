@@ -48,7 +48,7 @@ export default function EventsTable({ events, columns, sourceNameMap }: EventsTa
                     key={col}
                     style={
                       col === 'isFailed'
-                        ? { color: event.isFailed ? '#C1121F' : '#2D6A4F', fontWeight: 700 }
+                        ? { color: event.isFailed ? '#FF2D6F' : '#00D68F', fontWeight: 700 }
                         : undefined
                     }
                   >
