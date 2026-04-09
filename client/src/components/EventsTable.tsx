@@ -3,14 +3,17 @@ import { Event } from '../types'
 interface EventsTableProps {
   events: Event[]
   columns: (keyof Event)[]
+  sourceNameMap: Record<string, string>
 }
 
-function formatCellValue(key: keyof Event, value: unknown): string {
+function formatCellValue(key: keyof Event, value: unknown, sourceNameMap: Record<string, string>): string {
   if (value === undefined || value === null) return '—'
+  if (key === 'sourceId') return sourceNameMap[String(value)] ?? String(value)
   if (key === 'isFailed') return value ? '✗' : '✓'
   if (key === 'pendingRestart') return value ? 'כן' : 'לא'
   if (key === 'createdDate' || key === 'receivedDate') {
-    const d = new Date(value as string)
+    const ts = value as number
+    const d = new Date(ts * 1000)
     return isNaN(d.getTime()) ? String(value) : d.toLocaleString('he-IL')
   }
   if (key === 'facesPositions') {
@@ -19,7 +22,7 @@ function formatCellValue(key: keyof Event, value: unknown): string {
   return String(value)
 }
 
-export default function EventsTable({ events, columns }: EventsTableProps) {
+export default function EventsTable({ events, columns, sourceNameMap }: EventsTableProps) {
   return (
     <div className="table-scroll">
       <table className="events-table">
@@ -49,7 +52,7 @@ export default function EventsTable({ events, columns }: EventsTableProps) {
                         : undefined
                     }
                   >
-                    {formatCellValue(col, event[col])}
+                    {formatCellValue(col, event[col], sourceNameMap)}
                   </td>
                 ))}
               </tr>

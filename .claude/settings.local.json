@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find C:UsersavivbDesktopAvivpicassoGallery-Dashboard-Projectserversrc -type f \\\\\\(-name *.ts -o -name *.js \\\\\\))",
+      "Bash(npx tsc:*)",
+      "Bash(npm install:*)"
+    ]
+  }
+}

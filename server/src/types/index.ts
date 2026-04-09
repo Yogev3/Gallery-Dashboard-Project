@@ -8,25 +8,24 @@ export interface FacePosition {
 export interface Event {
   imageId: string
   personId: string
-  imageHash: string
-  imageFormat: 'JPEG' | 'PNG' | 'BMP' | 'TIFF'
-  sourceSystem: string
-  semiSource: string
-  createdDate: string   // ISO string (serialised from Date)
-  receivedDate: string
-  isFailed: boolean
-  amountOfFaces: number
-  failureReason?: string    // only when isFailed = true
-  pendingRestart: boolean   // only true when isFailed = true
-  restartCount: number
-  facesPositions: FacePosition[]
+  imageHash?: string
+  format?: string
+  sourceId: number
+  semiSource?: string
+  createdDate: number         // unix timestamp (seconds)
+  receivedDate: number        // unix timestamp (seconds)
+  isFailed?: boolean
+  amountOfFaces?: number
+  failureReason?: string
+  pendingRestart?: boolean
+  restartCount?: number
+  facesPositions?: FacePosition[]
 }
 
 export interface Source {
   sourceId: number
   SourceName: string
   SourceHebName: string
-  weight: number    // mock-only: generation frequency weight
 }
 
 export interface RestartResult {
@@ -41,8 +40,8 @@ export interface EventFilters {
   page?: number
   pageSize?: number
   isFailed?: boolean
-  sourceSystems?: string[]
-  imageFormats?: string[]
+  sourceIds?: number[]
+  formats?: string[]
   pendingRestart?: boolean
 }
 

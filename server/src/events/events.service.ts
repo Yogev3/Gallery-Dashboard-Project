@@ -29,14 +29,14 @@ export class EventsService {
       if (filters.isFailed !== undefined) {
         docs = docs.filter(d => d.isFailed === filters.isFailed)
       }
-      if (filters.sourceSystems && filters.sourceSystems.length > 0) {
-        docs = docs.filter(d => filters.sourceSystems!.includes(d.sourceSystem))
+      if (filters.sourceIds && filters.sourceIds.length > 0) {
+        docs = docs.filter(d => filters.sourceIds!.includes(d.sourceId))
       }
-      if (filters.imageFormats && filters.imageFormats.length > 0) {
-        docs = docs.filter(d => filters.imageFormats!.includes(d.imageFormat))
+      if (filters.formats && filters.formats.length > 0) {
+        docs = docs.filter(d => filters.formats!.includes(d.format!))
       }
       if (filters.pendingRestart) {
-        docs = docs.filter(d => d.isFailed && d.restartCount < 3)
+        docs = docs.filter(d => d.isFailed && (d.restartCount ?? 0) < 3)
       }
 
       return docs
@@ -44,8 +44,8 @@ export class EventsService {
 
     const query: Record<string, any> = {}
     if (filters.isFailed !== undefined) query['isFailed'] = filters.isFailed
-    if (filters.sourceSystems?.length) query['sourceSystem'] = { $in: filters.sourceSystems }
-    if (filters.imageFormats?.length)  query['imageFormat']  = { $in: filters.imageFormats }
+    if (filters.sourceIds?.length) query['sourceId'] = { $in: filters.sourceIds }
+    if (filters.formats?.length)   query['format']   = { $in: filters.formats }
     if (filters.pendingRestart !== undefined) query['pendingRestart'] = filters.pendingRestart
     const db = await this.dbService.getDb()
     return db.collection<Event>(this.eventsColl).find(query, { projection: { _id: 0 } }).limit(limit).toArray()
@@ -62,17 +62,17 @@ export class EventsService {
       if (filters.isFailed !== undefined) {
         docs = docs.filter(d => d.isFailed === filters.isFailed)
       }
-      if (filters.sourceSystems && filters.sourceSystems.length > 0) {
-        docs = docs.filter(d => filters.sourceSystems!.includes(d.sourceSystem))
+      if (filters.sourceIds && filters.sourceIds.length > 0) {
+        docs = docs.filter(d => filters.sourceIds!.includes(d.sourceId))
       }
-      if (filters.imageFormats && filters.imageFormats.length > 0) {
-        docs = docs.filter(d => filters.imageFormats!.includes(d.imageFormat))
+      if (filters.formats && filters.formats.length > 0) {
+        docs = docs.filter(d => filters.formats!.includes(d.format!))
       }
       if (filters.pendingRestart) {
-        docs = docs.filter(d => d.isFailed && d.restartCount < 3)
+        docs = docs.filter(d => d.isFailed && (d.restartCount ?? 0) < 3)
       }
 
-      docs.sort((a, b) => new Date(b.receivedDate).getTime() - new Date(a.receivedDate).getTime())
+      docs.sort((a, b) => b.receivedDate - a.receivedDate)
 
       const total = docs.length
       const data = docs.slice(skip, skip + pageSize)
@@ -88,8 +88,8 @@ export class EventsService {
 
     const query: Record<string, any> = {}
     if (filters.isFailed !== undefined) query['isFailed'] = filters.isFailed
-    if (filters.sourceSystems?.length) query['sourceSystem'] = { $in: filters.sourceSystems }
-    if (filters.imageFormats?.length)  query['imageFormat']  = { $in: filters.imageFormats }
+    if (filters.sourceIds?.length) query['sourceId'] = { $in: filters.sourceIds }
+    if (filters.formats?.length)   query['format']   = { $in: filters.formats }
     if (filters.pendingRestart !== undefined) query['pendingRestart'] = filters.pendingRestart
     const db = await this.dbService.getDb()
     const col = db.collection<Event>(this.eventsColl)
@@ -104,12 +104,12 @@ export class EventsService {
     return { data, total, page, pageSize, totalPages: Math.max(1, Math.ceil(total / pageSize)) }
   }
 
-  async fetchFailedEvents(limit: number, sourceSystems?: string[]): Promise<Event[]> {
-    return this.fetchEvents({ limit, isFailed: true, sourceSystems })
+  async fetchFailedEvents(limit: number, sourceIds?: number[]): Promise<Event[]> {
+    return this.fetchEvents({ limit, isFailed: true, sourceIds })
   }
 
-  async fetchFailedEventsPaginated(page: number, pageSize: number, sourceSystems?: string[]): Promise<PaginatedResult<Event>> {
-    return this.fetchEventsPaginated({ page, pageSize, isFailed: true, sourceSystems })
+  async fetchFailedEventsPaginated(page: number, pageSize: number, sourceIds?: number[]): Promise<PaginatedResult<Event>> {
+    return this.fetchEventsPaginated({ page, pageSize, isFailed: true, sourceIds })
   }
 
   async fetchPendingRestartEvents(limit: number): Promise<Event[]> {
@@ -120,16 +120,16 @@ export class EventsService {
     return this.fetchEventsPaginated({ page, pageSize, isFailed: true, pendingRestart: true })
   }
 
-  async fetchStats(filters?: { sourceSystems?: string[]; imageFormats?: string[] }): Promise<EventsStats> {
+  async fetchStats(filters?: { sourceIds?: number[]; formats?: string[] }): Promise<EventsStats> {
     if (this.useMock) {
       const docs = generateMockEvents(100000)
 
       let filtered = docs
-      if (filters?.sourceSystems?.length) {
-        filtered = filtered.filter(d => filters.sourceSystems!.includes(d.sourceSystem))
+      if (filters?.sourceIds?.length) {
+        filtered = filtered.filter(d => filters.sourceIds!.includes(d.sourceId))
       }
-      if (filters?.imageFormats?.length) {
-        filtered = filtered.filter(d => filters.imageFormats!.includes(d.imageFormat))
+      if (filters?.formats?.length) {
+        filtered = filtered.filter(d => filters.formats!.includes(d.format!))
       }
 
       return this.computeStats(filtered)
@@ -138,8 +138,8 @@ export class EventsService {
     const db = await this.dbService.getDb()
     const col = db.collection<Event>(this.eventsColl)
     const matchStage: Record<string, any> = {}
-    if (filters?.sourceSystems?.length) matchStage['sourceSystem'] = { $in: filters.sourceSystems }
-    if (filters?.imageFormats?.length)  matchStage['imageFormat']  = { $in: filters.imageFormats }
+    if (filters?.sourceIds?.length) matchStage['sourceId'] = { $in: filters.sourceIds }
+    if (filters?.formats?.length)   matchStage['format']   = { $in: filters.formats }
 
     const pipeline = [
       ...(Object.keys(matchStage).length ? [{ $match: matchStage }] : []),
@@ -147,13 +147,34 @@ export class EventsService {
         total:        [{ $count: 'count' }],
         failed:       [{ $match: { isFailed: true } }, { $count: 'count' }],
         pending:      [{ $match: { isFailed: true, pendingRestart: true } }, { $count: 'count' }],
-        bySource:     [{ $group: { _id: '$sourceSystem', count: { $sum: 1 } } }],
-        byFormat:     [{ $group: { _id: '$imageFormat', count: { $sum: 1 } } }],
+        bySource:     [{ $group: { _id: '$sourceId', count: { $sum: 1 } } }],
+        byFormat:     [{ $group: { _id: '$format', count: { $sum: 1 } } }],
         byReason:     [{ $match: { isFailed: true, failureReason: { $ne: null } } }, { $group: { _id: '$failureReason', count: { $sum: 1 } } }],
         byFaces:      [{ $group: { _id: '$amountOfFaces', count: { $sum: 1 } } }],
-        dailyFailed:  [{ $match: { isFailed: true } }, { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdDate' } }, count: { $sum: 1 } } }],
-        hourly:       [{ $group: { _id: { $dateToString: { format: '%Y-%m-%d %H:00', date: '$createdDate' } }, count: { $sum: 1 } } }],
-        sourceStatus: [{ $group: { _id: { src: '$sourceSystem', failed: '$isFailed' }, count: { $sum: 1 } } }],
+        dailyFailed:  [
+          { $match: { isFailed: true } },
+          { $group: {
+            _id: {
+              $dateToString: {
+                format: '%Y-%m-%d',
+                date: { $toDate: { $multiply: ['$createdDate', 1000] } },
+              },
+            },
+            count: { $sum: 1 },
+          }},
+        ],
+        hourly: [
+          { $group: {
+            _id: {
+              $dateToString: {
+                format: '%Y-%m-%d %H:00',
+                date: { $toDate: { $multiply: ['$createdDate', 1000] } },
+              },
+            },
+            count: { $sum: 1 },
+          }},
+        ],
+        sourceStatus: [{ $group: { _id: { src: '$sourceId', failed: '$isFailed' }, count: { $sum: 1 } } }],
       }}
     ]
     const [result] = await col.aggregate(pipeline).toArray() as any[]
@@ -176,7 +197,7 @@ export class EventsService {
 
     const srcStatusMap: Record<string, { failed: number; success: number }> = {}
     for (const r of result.sourceStatus) {
-      const src = r._id.src
+      const src = String(r._id.src)
       if (!srcStatusMap[src]) srcStatusMap[src] = { failed: 0, success: 0 }
       if (r._id.failed) srcStatusMap[src].failed = r.count
       else srcStatusMap[src].success = r.count
@@ -185,7 +206,7 @@ export class EventsService {
       .map(([source, v]) => ({ source, ...v }))
 
     const failedBySourceArr = result.bySource.filter((r: any) => {
-      return result.sourceStatus.some((s: any) => s._id.src === r._id && s._id.failed)
+      return result.sourceStatus.some((s: any) => String(s._id.src) === String(r._id) && s._id.failed)
     })
 
     return {
@@ -223,42 +244,46 @@ export class EventsService {
     for (const e of docs) {
       if (e.isFailed) {
         failedCount++
-        if (e.restartCount < 3) pendingCount++
+        if ((e.restartCount ?? 0) < 3) pendingCount++
       }
 
+      const srcKey = String(e.sourceId)
+
       if (e.isFailed) {
-        const d = new Date(e.createdDate)
+        const d = new Date(e.createdDate * 1000)
         if (!isNaN(d.getTime())) {
-          const key = d.toLocaleDateString('he-IL')
+          const key = d.toISOString().slice(0, 10)
           dailyFailMap[key] = (dailyFailMap[key] ?? 0) + 1
         }
       }
 
       {
-        const d = new Date(e.createdDate)
+        const d = new Date(e.createdDate * 1000)
         if (!isNaN(d.getTime())) {
-          const key = `${d.toLocaleDateString('he-IL')} ${d.getHours()}:00`
+          const key = d.toISOString().slice(0, 13) + ':00'
           hourlyMap[key] = (hourlyMap[key] ?? 0) + 1
         }
       }
 
       if (e.isFailed) {
-        failedSrcMap[e.sourceSystem] = (failedSrcMap[e.sourceSystem] ?? 0) + 1
+        failedSrcMap[srcKey] = (failedSrcMap[srcKey] ?? 0) + 1
       }
 
-      sourceMap[e.sourceSystem] = (sourceMap[e.sourceSystem] ?? 0) + 1
-      formatMap[e.imageFormat] = (formatMap[e.imageFormat] ?? 0) + 1
+      sourceMap[srcKey] = (sourceMap[srcKey] ?? 0) + 1
+      if (e.format) {
+        formatMap[e.format] = (formatMap[e.format] ?? 0) + 1
+      }
 
       if (e.isFailed && e.failureReason) {
         reasonMap[e.failureReason] = (reasonMap[e.failureReason] ?? 0) + 1
       }
 
-      const fKey = String(e.amountOfFaces)
+      const fKey = String(e.amountOfFaces ?? 0)
       facesMap[fKey] = (facesMap[fKey] ?? 0) + 1
 
-      if (!srcStatusMap[e.sourceSystem]) srcStatusMap[e.sourceSystem] = { failed: 0, success: 0 }
-      if (e.isFailed) srcStatusMap[e.sourceSystem].failed++
-      else srcStatusMap[e.sourceSystem].success++
+      if (!srcStatusMap[srcKey]) srcStatusMap[srcKey] = { failed: 0, success: 0 }
+      if (e.isFailed) srcStatusMap[srcKey].failed++
+      else srcStatusMap[srcKey].success++
     }
 
     const totalEvents = docs.length
@@ -269,21 +294,11 @@ export class EventsService {
 
     const dailyFailures: DayCount[] = Object.entries(dailyFailMap)
       .map(([day, count]) => ({ day, count }))
-      .sort((a, b) => {
-        const da = new Date(a.day.split('.').reverse().join('-'))
-        const db = new Date(b.day.split('.').reverse().join('-'))
-        return da.getTime() - db.getTime()
-      })
+      .sort((a, b) => a.day.localeCompare(b.day))
 
     const hourlyEvents: HourCount[] = Object.entries(hourlyMap)
       .map(([hour, count]) => ({ hour, count }))
-      .sort((a, b) => {
-        const [dateA, timeA] = a.hour.split(' ')
-        const [dateB, timeB] = b.hour.split(' ')
-        const da = new Date(dateA.split('.').reverse().join('-') + 'T' + timeA)
-        const db = new Date(dateB.split('.').reverse().join('-') + 'T' + timeB)
-        return da.getTime() - db.getTime()
-      })
+      .sort((a, b) => a.hour.localeCompare(b.hour))
 
     const sourceStatusStacked: SourceStatusCount[] = Object.entries(srcStatusMap)
       .map(([source, v]) => ({ source, ...v }))
@@ -314,6 +329,6 @@ export class EventsService {
     }
 
     const db = await this.dbService.getDb()
-    return (await db.collection<Event>(this.eventsColl).distinct('imageFormat')).sort()
+    return (await db.collection<Event>(this.eventsColl).distinct('format')).sort()
   }
 }

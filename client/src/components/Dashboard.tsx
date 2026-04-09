@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -29,7 +29,7 @@ const EMPTY_STATS: EventsStats = {
 
 interface MultiSelectProps {
   label: string
-  options: string[]
+  options: { value: string; display: string }[]
   selected: string[]
   onChange: (v: string[]) => void
 }
@@ -53,7 +53,7 @@ function MultiSelect({ label, options, selected, onChange }: MultiSelectProps) {
 
   const displayText = selected.length === 0
     ? `${label} (הכל)`
-    : selected.join(', ')
+    : selected.map(v => options.find(o => o.value === v)?.display ?? v).join(', ')
 
   return (
     <div className="multi-select-dropdown" ref={ref}>
@@ -69,13 +69,13 @@ function MultiSelect({ label, options, selected, onChange }: MultiSelectProps) {
       {open && (
         <div className="dropdown-menu">
           {options.map(opt => (
-            <label key={opt} className="dropdown-item">
+            <label key={opt.value} className="dropdown-item">
               <input
                 type="checkbox"
-                checked={selected.includes(opt)}
-                onChange={() => toggle(opt)}
+                checked={selected.includes(opt.value)}
+                onChange={() => toggle(opt.value)}
               />
-              {opt}
+              {opt.display}
             </label>
           ))}
         </div>
@@ -147,10 +147,9 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 export default function Dashboard() {
-  // filters
-  const [sourceSystems, setSourceSystems] = useState<string[]>([])
-  const [imageFormats, setImageFormats]   = useState<string[]>([])
-
+  // filters — sourceIds stored as string[] for the multi-select, converted to number[] for API
+  const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([])
+  const [selectedFormats, setSelectedFormats]     = useState<string[]>([])
 
   // pagination
   const [failedPage, setFailedPage]   = useState(1)
@@ -165,6 +164,15 @@ export default function Dashboard() {
   const [formats, setFormats]             = useState<string[]>([])
   const [loading, setLoading]             = useState(true)
   const [eventsLoading, setEventsLoading] = useState(false)
+
+  // sourceId → SourceName lookup
+  const sourceNameMap = useMemo(() => {
+    const m: Record<string, string> = {}
+    for (const s of sources) {
+      m[String(s.sourceId)] = s.SourceName
+    }
+    return m
+  }, [sources])
 
   // load static data on mount
   useEffect(() => {
@@ -181,13 +189,12 @@ export default function Dashboard() {
   const loadData = useCallback(async () => {
     setEventsLoading(true)
     try {
-      const statsFilters = {
-        sourceSystems: sourceSystems.length ? sourceSystems : undefined,
-        imageFormats: imageFormats.length ? imageFormats : undefined,
-      }
+      const sourceIds = selectedSourceIds.length ? selectedSourceIds.map(Number) : undefined
+      const fmts = selectedFormats.length ? selectedFormats : undefined
+
       const [st, failed, pending] = await Promise.all([
-        fetchEventsStats(statsFilters),
-        fetchFailedEventsPaginated(failedPage, pageSize, sourceSystems.length ? sourceSystems : undefined),
+        fetchEventsStats({ sourceIds, formats: fmts }),
+        fetchFailedEventsPaginated(failedPage, pageSize, sourceIds),
         fetchPendingRestartEventsPaginated(pendingPage, pageSize),
       ])
       setStats(st)
@@ -198,7 +205,7 @@ export default function Dashboard() {
     } finally {
       setEventsLoading(false)
     }
-  }, [sourceSystems, imageFormats, failedPage, pendingPage, pageSize])
+  }, [selectedSourceIds, selectedFormats, failedPage, pendingPage, pageSize])
 
   useEffect(() => {
     if (!loading) {
@@ -210,13 +217,23 @@ export default function Dashboard() {
     return <div className="loading-text">טוען נתונים...</div>
   }
 
-  // ── stats from server (aggregated over ALL events) ────────────────────────
+  // ── helper: resolve sourceId to name in stats arrays ─────────────────────
+  function resolveSourceName(id: string): string {
+    return sourceNameMap[id] ?? id
+  }
+
+  // ── stats from server ────────────────────────────────────────────────────
   const { totalEvents, successCount, failedCount, pendingCount,
     dailyFailures, hourlyEvents, failedBySource, sourceCounts,
     formatCounts, reasonCounts, facesCounts, statusSplit,
     sourceStatusStacked } = stats
 
-  const sourceNames = sources.map(s => s.SourceName)
+  // map sourceId → SourceName for chart display
+  const sourceCountsDisplay = sourceCounts.map(s => ({ ...s, name: resolveSourceName(s.name) }))
+  const failedBySourceDisplay = failedBySource.map(s => ({ ...s, name: resolveSourceName(s.name) }))
+  const sourceStatusDisplay = sourceStatusStacked.map(s => ({ ...s, source: resolveSourceName(s.source) }))
+
+  const sourceOptions = sources.map(s => ({ value: String(s.sourceId), display: s.SourceName }))
 
   // ── tables use server-side paginated data directly
   const failedTableEvents = failedResult.data
@@ -233,19 +250,19 @@ export default function Dashboard() {
           מקור
           <MultiSelect
             label="מקור"
-            options={sourceNames}
-            selected={sourceSystems}
-            onChange={setSourceSystems}
+            options={sourceOptions}
+            selected={selectedSourceIds}
+            onChange={setSelectedSourceIds}
           />
         </label>
 
         <label>
           פורמט תמונה
           <select
-            value={imageFormats[0] ?? ''}
+            value={selectedFormats[0] ?? ''}
             onChange={e => {
               const v = e.target.value
-              setImageFormats(v ? [v] : [])
+              setSelectedFormats(v ? [v] : [])
             }}
           >
             <option value="">הכל</option>
@@ -320,9 +337,10 @@ export default function Dashboard() {
           />
           <EventsTable
             events={failedTableEvents}
+            sourceNameMap={sourceNameMap}
             columns={[
-              'imageId', 'personId', 'sourceSystem', 'semiSource',
-              'imageFormat', 'failureReason', 'restartCount',
+              'imageId', 'personId', 'sourceId', 'semiSource',
+              'format', 'failureReason', 'restartCount',
               'amountOfFaces', 'createdDate', 'receivedDate',
             ]}
           />
@@ -350,9 +368,10 @@ export default function Dashboard() {
           />
           <EventsTable
             events={pendingTableEvents}
+            sourceNameMap={sourceNameMap}
             columns={[
-              'imageId', 'personId', 'sourceSystem', 'semiSource',
-              'imageFormat', 'failureReason', 'restartCount',
+              'imageId', 'personId', 'sourceId', 'semiSource',
+              'format', 'failureReason', 'restartCount',
               'amountOfFaces', 'createdDate', 'receivedDate',
             ]}
           />
@@ -401,7 +420,7 @@ export default function Dashboard() {
         <div className="chart-card">
           <p className="section-title">כישלונות לפי מקור</p>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={failedBySource} margin={{ top: 20, bottom: 10, left: 10 }}>
+            <BarChart data={failedBySourceDisplay} margin={{ top: 20, bottom: 10, left: 10 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" tick={{ fontSize: 12 }} />
               <YAxis allowDecimals={false} width={50} />
@@ -419,14 +438,14 @@ export default function Dashboard() {
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
-                data={sourceCounts}
+                data={sourceCountsDisplay}
                 dataKey="count"
                 nameKey="name"
                 cx="50%"
                 cy="50%"
                 outerRadius={90}
               >
-                {sourceCounts.map((entry, i) => (
+                {sourceCountsDisplay.map((entry, i) => (
                   <Cell
                     key={entry.name}
                     fill={['#1D3557','#457B9D','#A8DADC','#2D6A4F','#E76F00'][i % 5]}
@@ -458,7 +477,7 @@ export default function Dashboard() {
         <div className="chart-card">
           <p className="section-title">סטטוס לפי מקור</p>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={sourceStatusStacked} margin={{ top: 20, bottom: 10, left: 10 }}>
+            <BarChart data={sourceStatusDisplay} margin={{ top: 20, bottom: 10, left: 10 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="source" tick={{ fontSize: 12 }} />
               <YAxis allowDecimals={false} width={50} />

@@ -1,6 +1,6 @@
 import { Event, EventFilters, EventsStats, PaginatedResult, RestartResult, Source } from '../types'
 
-const BASE = '/api'
+const BASE = (import.meta.env.VITE_API_BASE as string) || '/api'
 
 async function get<T>(path: string, params?: Record<string, string | undefined>): Promise<T> {
   const url = new URL(path, window.location.origin)
@@ -34,8 +34,8 @@ export async function fetchEvents(filters: EventFilters): Promise<Event[]> {
   const params: Record<string, string | undefined> = {}
   if (filters.limit !== undefined) params.limit = String(filters.limit)
   if (filters.isFailed !== undefined) params.isFailed = String(filters.isFailed)
-  if (filters.sourceSystems?.length) params.sourceSystems = filters.sourceSystems.join(',')
-  if (filters.imageFormats?.length) params.imageFormats = filters.imageFormats.join(',')
+  if (filters.sourceIds?.length) params.sourceIds = filters.sourceIds.join(',')
+  if (filters.formats?.length) params.formats = filters.formats.join(',')
   if (filters.pendingRestart !== undefined) params.pendingRestart = String(filters.pendingRestart)
   return get<Event[]>(`${BASE}/events`, params)
 }
@@ -44,12 +44,12 @@ export async function fetchFailedEvents(limit = 3000): Promise<Event[]> {
   return get<Event[]>(`${BASE}/events/failed`, { limit: String(limit) })
 }
 
-export async function fetchFailedEventsPaginated(page: number, pageSize: number, sourceSystems?: string[]): Promise<PaginatedResult<Event>> {
+export async function fetchFailedEventsPaginated(page: number, pageSize: number, sourceIds?: number[]): Promise<PaginatedResult<Event>> {
   const params: Record<string, string | undefined> = {
     page: String(page),
     pageSize: String(pageSize),
   }
-  if (sourceSystems?.length) params.sourceSystems = sourceSystems.join(',')
+  if (sourceIds?.length) params.sourceIds = sourceIds.join(',')
   return get<PaginatedResult<Event>>(`${BASE}/events/failed`, params)
 }
 
@@ -64,10 +64,10 @@ export async function fetchPendingRestartEventsPaginated(page: number, pageSize:
   })
 }
 
-export async function fetchEventsStats(filters?: { sourceSystems?: string[]; imageFormats?: string[] }): Promise<EventsStats> {
+export async function fetchEventsStats(filters?: { sourceIds?: number[]; formats?: string[] }): Promise<EventsStats> {
   const params: Record<string, string | undefined> = {}
-  if (filters?.sourceSystems?.length) params.sourceSystems = filters.sourceSystems.join(',')
-  if (filters?.imageFormats?.length) params.imageFormats = filters.imageFormats.join(',')
+  if (filters?.sourceIds?.length) params.sourceIds = filters.sourceIds.join(',')
+  if (filters?.formats?.length) params.formats = filters.formats.join(',')
   return get<EventsStats>(`${BASE}/events/stats`, params)
 }
 

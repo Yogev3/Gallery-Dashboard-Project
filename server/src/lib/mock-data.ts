@@ -2,15 +2,16 @@ import { Event, Source } from '../types'
 
 // ---------------------------------------------------------------------------
 // Static reference data — mirrors what would live in the `sources` collection
-// `weight` is mock-only and controls how often each source appears
 // ---------------------------------------------------------------------------
 export const MOCK_SOURCES: Source[] = [
-  { sourceId: 1, SourceName: 'louvre',   SourceHebName: 'לובר',     weight: 28 },
-  { sourceId: 2, SourceName: 'red-wolf', SourceHebName: 'זאב אדום', weight: 24 },
-  { sourceId: 3, SourceName: 'akila',    SourceHebName: 'עקילה',    weight: 18 },
-  { sourceId: 4, SourceName: 'shabas',   SourceHebName: 'שב"ס',     weight: 15 },
-  { sourceId: 5, SourceName: 'rashbag',  SourceHebName: 'רשב"ג',    weight: 15 },
+  { sourceId: 1, SourceName: 'louvre',   SourceHebName: 'לובר'     },
+  { sourceId: 2, SourceName: 'red-wolf', SourceHebName: 'זאב אדום' },
+  { sourceId: 3, SourceName: 'akila',    SourceHebName: 'עקילה'    },
+  { sourceId: 4, SourceName: 'shabas',   SourceHebName: 'שב"ס'     },
+  { sourceId: 5, SourceName: 'rashbag',  SourceHebName: 'רשב"ג'    },
 ]
+
+const SOURCE_WEIGHTS = [28, 24, 18, 15, 15]
 
 export const IMAGE_FORMATS: string[] = ['JPEG', 'PNG', 'BMP', 'TIFF']
 export const SEMI_SOURCES:  string[] = ['primary', 'secondary', 'tertiary']
@@ -43,25 +44,21 @@ function randomInt(min: number, max: number): number {
 // Mock event generator
 // ---------------------------------------------------------------------------
 export function generateMockEvents(n: number): Event[] {
-  const sourceNames   = MOCK_SOURCES.map(s => s.SourceName)
-  const sourceWeights = MOCK_SOURCES.map(s => s.weight)
-  const now = Date.now()
-  const sevenDaysMs = 7 * 24 * 60 * 60 * 1000
+  const sourceIds     = MOCK_SOURCES.map(s => s.sourceId)
+  const now = Math.floor(Date.now() / 1000)
+  const sevenDaysSec = 7 * 24 * 60 * 60
   const events: Event[] = []
 
   for (let i = 0; i < n; i++) {
     const isFailed = Math.random() < 0.22
 
-    const source     = weightedChoice(sourceNames, sourceWeights)
+    const sourceId   = weightedChoice(sourceIds, SOURCE_WEIGHTS)
     const semiSource = SEMI_SOURCES[randomInt(0, SEMI_SOURCES.length - 1)]
-    const imgFormat  = weightedChoice(
-      IMAGE_FORMATS as ('JPEG' | 'PNG' | 'BMP' | 'TIFF')[],
-      [60, 25, 10, 5],
-    )
-    const faceCount = weightedChoice([1, 2, 3, 4, 5], [55, 25, 12, 5, 3])
+    const format     = weightedChoice(IMAGE_FORMATS, [60, 25, 10, 5])
+    const faceCount  = weightedChoice([1, 2, 3, 4, 5], [55, 25, 12, 5, 3])
 
-    const createdMs  = now - randomInt(0, sevenDaysMs) - randomInt(0, 59) * 1000
-    const receivedMs = createdMs + randomInt(1, 60) * 1000
+    const createdSec  = now - randomInt(0, sevenDaysSec)
+    const receivedSec = createdSec + randomInt(1, 60)
 
     const failureReason  = isFailed ? FAILURE_REASONS[randomInt(0, FAILURE_REASONS.length - 1)] : undefined
     const restartCount   = isFailed ? weightedChoice([0, 1, 2, 3, 4, 5], [35, 25, 15, 10, 10, 5]) : 0
@@ -78,17 +75,17 @@ export function generateMockEvents(n: number): Event[] {
       imageId:        `img_${randomInt(1000000, 9999999)}`,
       personId:       `person_${randomInt(10000, 99999)}`,
       imageHash:      `hash_${randomInt(100000000, 999999999)}`,
-      imageFormat:    imgFormat,
-      sourceSystem:   source,
-      semiSource:     semiSource,
-      createdDate:    new Date(createdMs).toISOString(),
-      receivedDate:   new Date(receivedMs).toISOString(),
-      isFailed:       isFailed,
+      format,
+      sourceId,
+      semiSource,
+      createdDate:    createdSec,
+      receivedDate:   receivedSec,
+      isFailed,
       amountOfFaces:  faceCount,
-      failureReason:  failureReason,
-      pendingRestart: pendingRestart,
-      restartCount:   restartCount,
-      facesPositions: facesPositions,
+      failureReason,
+      pendingRestart,
+      restartCount,
+      facesPositions,
     })
   }
 
