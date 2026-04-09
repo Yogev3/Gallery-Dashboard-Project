@@ -1,29 +1,28 @@
 import { useState, FormEvent } from 'react'
-import { restartEvent } from '../api/client'
+import { restartEvents } from '../api/client'
 
 interface RestartFormProps {
-  onSuccess?: (msg: string) => void
+  failedImageIds: string[]
+  onSuccess?: () => void
 }
 
-export default function RestartForm({ onSuccess }: RestartFormProps) {
-  const [eventId, setEventId]   = useState('')
-  const [loading, setLoading]   = useState(false)
+export default function RestartForm({ failedImageIds, onSuccess }: RestartFormProps) {
+  const [imageId, setImageId]       = useState('')
+  const [loading, setLoading]       = useState(false)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
   const [errorMsg, setErrorMsg]     = useState<string | null>(null)
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault()
+  async function send(ids: string[]) {
     setSuccessMsg(null)
     setErrorMsg(null)
     setLoading(true)
 
     try {
-      const result = await restartEvent(eventId.trim())
+      const result = await restartEvents(ids)
       if (result.success) {
-        const msg = result.message ?? `אתחול עבור ${result.eventId} נשלח בהצלחה`
-        setSuccessMsg(msg)
-        setEventId('')
-        onSuccess?.(msg)
+        setSuccessMsg(result.message ?? `אתחול עבור ${ids.length} אירועים נשלח בהצלחה`)
+        setImageId('')
+        onSuccess?.()
       } else {
         setErrorMsg(result.error ?? 'שגיאה לא ידועה')
       }
@@ -34,29 +33,46 @@ export default function RestartForm({ onSuccess }: RestartFormProps) {
     }
   }
 
+  function handleSubmitSingle(e: FormEvent) {
+    e.preventDefault()
+    const trimmed = imageId.trim()
+    if (!trimmed) return
+    send([trimmed])
+  }
+
+  function handleRestartAll() {
+    if (failedImageIds.length === 0) return
+    send(failedImageIds)
+  }
+
   return (
-    <div className="restart-form">
-      <h3>הפעל אתחול לאירוע</h3>
-      <form onSubmit={handleSubmit}>
-        <div className="form-group">
-          <label htmlFor="eventId">מזהה אירוע</label>
+    <div className="restart-inline">
+      <form onSubmit={handleSubmitSingle} className="restart-row">
+        <div className="restart-input-group">
+          <label htmlFor="imageId">imageId</label>
           <input
-            id="eventId"
+            id="imageId"
             type="text"
-            value={eventId}
-            onChange={e => setEventId(e.target.value)}
+            value={imageId}
+            onChange={e => setImageId(e.target.value)}
             placeholder="img_XXXXXXX"
             required
           />
         </div>
-
-        <button type="submit" disabled={loading}>
+        <button type="submit" className="restart-btn restart-btn-single" disabled={loading}>
           {loading ? 'שולח...' : 'שלח אתחול'}
         </button>
+        <button
+          type="button"
+          className="restart-btn restart-btn-all"
+          disabled={loading || failedImageIds.length === 0}
+          onClick={handleRestartAll}
+        >
+          {loading ? 'שולח...' : `אתחול כל הנכשלים (${failedImageIds.length.toLocaleString()})`}
+        </button>
       </form>
-
-      {successMsg && <div className="alert-success">{successMsg}</div>}
-      {errorMsg   && <div className="alert-error">{errorMsg}</div>}
+      {successMsg && <div className="restart-alert restart-alert-ok">{successMsg}</div>}
+      {errorMsg   && <div className="restart-alert restart-alert-err">{errorMsg}</div>}
     </div>
   )
 }

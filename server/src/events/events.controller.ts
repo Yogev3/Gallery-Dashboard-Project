@@ -88,6 +88,6 @@ export class EventsController {
 
   @Post('restart')
   async restartEvent(@Body() body: RestartEventDto) {
-    return this.restartService.restartEvent(body.eventId)
+    return this.restartService.restartEvents(body.imageIds)
   }
 }
