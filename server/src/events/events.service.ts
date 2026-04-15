@@ -157,7 +157,11 @@ export class EventsService {
             _id: {
               $dateToString: {
                 format: '%Y-%m-%d',
-                date: { $toDate: { $multiply: ['$createdDate', 1000] } },
+                date: { $toDate: { $cond: {
+                  if: { $gt: ['$createdDate', 1e10] },
+                  then: '$createdDate',
+                  else: { $multiply: ['$createdDate', 1000] },
+                }}},
               },
             },
             count: { $sum: 1 },
@@ -168,7 +172,11 @@ export class EventsService {
             _id: {
               $dateToString: {
                 format: '%Y-%m-%d %H:00',
-                date: { $toDate: { $multiply: ['$createdDate', 1000] } },
+                date: { $toDate: { $cond: {
+                  if: { $gt: ['$createdDate', 1e10] },
+                  then: '$createdDate',
+                  else: { $multiply: ['$createdDate', 1000] },
+                }}},
               },
             },
             count: { $sum: 1 },
